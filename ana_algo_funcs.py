@@ -1,5 +1,6 @@
 from ana_Community_Detection_Algorithms import *
-from ana_FileProcessing import getNumNodesFromNetFile
+from ana_eval_funcs import *
+import subprocess
 
 def anaLouvainAlgo(INPUT_layer_path_from_dict, outputDirectory, analysisNAME, userName_from_ana_config_file, gen_configFile_name, ana_config_file_name):
     # Read and process input file to create Graph
@@ -75,6 +76,35 @@ def anaMultilevelAlgo(INPUT_layer_path_from_dict, outputDirectory, analysisNAME,
     print("--- MULTILEVEL COMPLETED ---\n")
     return numNodes, numEdges, numCommunities
 
+def notAlgo(INPUT_layer_path_from_dict, layername, ana_log_file_object, ana_log_file, tmp_directory, layers_generated_folder, ana_hash_table):
+    operator = "NOT"
+    writeNotConfig(INPUT_layer_path_from_dict)
+    
+    #Time isn't used yet but can be if logs are needed for NOT.
+    start_time = time.time()
+    returncode = subprocess.call(["./" + "layerComposer_v2"]) #calls c++ code for operator. returns 0 for successful evaluation.
+    end_time = time.time()
+    time_elapsed = str(round(end_time - start_time, 4))
+    
+    if returncode != 0: #Catch c++ code error
+        print(f"Error: {operator} failed. Error code: {returncode}")
+        ana_log_file_object.ana_msg_log_file(ana_log_file, f"Error: {operator} failed. Error code: {returncode}. Analysis is unsuccessful.")
+        delete_files(ana_hash_table)
+        raise ValueError(4)   
+    print(f"--- \"{operator}\" COMPLETED ---\n\n")
+    
+    #File output is in this format.
+    output_file = f"NOT_#{layername}.net" 
+    
+    #Move the file to the layers_generated folder.
+    shutil.move(output_file, os.path.join(layers_generated_folder, output_file))
+    
+    #Layername without .net extension should be pushed back into the evalStack.
+    output_file = f"NOT_#{layername}" 
+    
+    return output_file
+
+
 # dictionary to store the algorithm's functions to call
 algorithmFunctionsDict = {
     "louvain": anaLouvainAlgo,
@@ -142,10 +172,15 @@ def cvANDConfig(operator, operand1, operand2, ana_log_file_object, ana_log_file,
 def ceORConfig(operator, operand1, operand2, ana_log_file_object, ana_log_file, file, numNodes):
     pass
 
+def writeNotConfig(inputfile):
+    conf = open("layerComposer.conf", 'w')
+    conf.write("# Defines the basic composition sequence\n# Composition Type - AND, OR, NOT\nNOT\n# 1st Layer\n" + inputfile + "\n")
+    conf.close()
+
 anaOperatorConfigDict = {
     "CE-AND": ceANDConfig,
     "CV-AND": cvANDConfig,
-    "CE-OR" : ceORConfig,
+    "CE-OR" : ceORConfig
 }
 
 

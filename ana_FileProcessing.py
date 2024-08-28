@@ -399,81 +399,81 @@ def createVertexClusteringObjectInfomap(im, graphLocation):
 
 ############################ ana_rpn.py ########################################
 
-#Used in binary operator evaluation. Given path to ecom file and vcom file, move them to the proper path they belong in. Operator is needed since CV-AND will not produce a .ecom file
-def moveEcomVcomFilesToDirectory(ecom_output, vcom_output, directory, operator):
-    if operator != 'CV-AND': # CV-AND will not produce a .ecom file
-        shutil.move(ecom_output, os.path.join(directory, ecom_output)) #Move ecom & vcom from pwd to given directory
-        ecom_output = os.path.join(directory, ecom_output)
+# #Used in binary operator evaluation. Given path to ecom file and vcom file, move them to the proper path they belong in. Operator is needed since CV-AND will not produce a .ecom file
+# def moveEcomVcomFilesToDirectory(ecom_output, vcom_output, directory, operator):
+#     if operator != 'CV-AND': # CV-AND will not produce a .ecom file
+#         shutil.move(ecom_output, os.path.join(directory, ecom_output)) #Move ecom & vcom from pwd to given directory
+#         ecom_output = os.path.join(directory, ecom_output)
         
-    shutil.move(vcom_output, os.path.join(directory, vcom_output))
-    vcom_output = os.path.join(directory, vcom_output)
-    return ecom_output, vcom_output
+#     shutil.move(vcom_output, os.path.join(directory, vcom_output))
+#     vcom_output = os.path.join(directory, vcom_output)
+#     return ecom_output, vcom_output
 
-#Given path of file to read (either ecom or vcom), return the numNodes, numCommunities, and numEdges.
-def readResultsFromFile(file_to_read) -> Tuple[str, str, str]:
-    read = open(file_to_read, 'r')
-    for i, line in enumerate(read):
-        if i == 3:
-                numNodes = str(line)
-        elif i == 5: 
-            numCommunities = str(line)
-        elif i == 7: 
-            if file_to_read.endswith(".ecom"):
-                numEdges = str(line)
-            else:
-                numEdges = "0\n"
-        elif i > 7:
-            break
-    read.close()
-    return numNodes, numEdges, numCommunities
+# #Given path of file to read (either ecom or vcom), return the numNodes, numCommunities, and numEdges.
+# def readResultsFromFile(file_to_read) -> Tuple[str, str, str]:
+#     read = open(file_to_read, 'r')
+#     for i, line in enumerate(read):
+#         if i == 3:
+#                 numNodes = str(line)
+#         elif i == 5: 
+#             numCommunities = str(line)
+#         elif i == 7: 
+#             if file_to_read.endswith(".ecom"):
+#                 numEdges = str(line)
+#             else:
+#                 numEdges = "0\n"
+#         elif i > 7:
+#             break
+#     read.close()
+#     return numNodes, numEdges, numCommunities
 
-#Given an ecom/vcom file, return the analysisname.
-def getAnalysisName(filepath) -> str:
-    with open(filepath) as file_path:
-        for i, line in enumerate(file_path):
-            if i == 1: #This line contains the analysis name
-                analysisname = line.strip()
-                return analysisname
+# #Given an ecom/vcom file, return the analysisname.
+# def getAnalysisName(filepath) -> str:
+#     with open(filepath) as file_path:
+#         for i, line in enumerate(file_path):
+#             if i == 1: #This line contains the analysis name
+#                 analysisname = line.strip()
+#                 return analysisname
             
 
 
-#Used after calling c++ code. renames the file that is output by the c++ code and updates the variable holding that file's name.
-def setFilePath(filepath, USERNAME) -> str:
-    os.rename(filepath, USERNAME + "_" + filepath)  #updates name of file to include username 
-    filepath = USERNAME + "_" + filepath #updates variable to new path 
-    return filepath
+# #Used after calling c++ code. renames the file that is output by the c++ code and updates the variable holding that file's name.
+# def setFilePath(filepath, USERNAME) -> str:
+#     os.rename(filepath, USERNAME + "_" + filepath)  #updates name of file to include username 
+#     filepath = USERNAME + "_" + filepath #updates variable to new path 
+#     return filepath
 
-#Used before calling c++ code. Checks if ecom files exist for both operands.
-def checkEcomFilesExist(path_to_1, path_to_2, ana_log_file_object, ana_log_file) -> bool:
-    ecom_1_exists = os.path.exists(path_to_1)
-    ecom_2_exists = os.path.exists(path_to_2)
+# #Used before calling c++ code. Checks if ecom files exist for both operands.
+# def checkEcomFilesExist(path_to_1, path_to_2, ana_log_file_object, ana_log_file) -> bool:
+#     ecom_1_exists = os.path.exists(path_to_1)
+#     ecom_2_exists = os.path.exists(path_to_2)
 
-    if(ecom_1_exists == False or ecom_2_exists == False):
-        ana_log_file_object.ana_msg_log_file(ana_log_file, "Analysis failed. Necessary ecom files do not exist. Tried calling CE-AND after CV-AND?\n")
-        print("Analysis failed. Necessary ecom files do not exist. Tried calling CE-AND after CV-AND?\n")
-        return False
-    else:
-        return True
+#     if(ecom_1_exists == False or ecom_2_exists == False):
+#         ana_log_file_object.ana_msg_log_file(ana_log_file, "Analysis failed. Necessary ecom files do not exist. Tried calling CE-AND after CV-AND?\n")
+#         print("Analysis failed. Necessary ecom files do not exist. Tried calling CE-AND after CV-AND?\n")
+#         return False
+#     else:
+#         return True
     
-#If analysis fails, we don't want to store any of the ecom,vcom files corresponding to that analysis. This deletes them.    
-def delete_files(ana_hash_table):
-    for value in ana_hash_table.values():
-        ecom_file = value.get("path_to_ecom_file")
-        vcom_file = value.get("path_to_vcom_file")
-        if ecom_file and os.path.exists(ecom_file):
-            os.remove(ecom_file)
-        if vcom_file and os.path.exists(vcom_file):
-            os.remove(vcom_file)
+# #If analysis fails, we don't want to store any of the ecom,vcom files corresponding to that analysis. This deletes them.    
+# def delete_files(ana_hash_table):
+#     for value in ana_hash_table.values():
+#         ecom_file = value.get("path_to_ecom_file")
+#         vcom_file = value.get("path_to_vcom_file")
+#         if ecom_file and os.path.exists(ecom_file):
+#             os.remove(ecom_file)
+#         if vcom_file and os.path.exists(vcom_file):
+#             os.remove(vcom_file)
             
-def moveFilesToOutputDirectory(filesToOutput, OUTPUT_DIRECTORY):
-    for file in filesToOutput:
-        shutil.copy(file, OUTPUT_DIRECTORY)
+# def moveFilesToOutputDirectory(filesToOutput, OUTPUT_DIRECTORY):
+#     for file in filesToOutput:
+#         shutil.copy(file, OUTPUT_DIRECTORY)
         
-def getNumNodesFromNetFile(netFile):
-    with open(netFile) as file:
-        for i, line in enumerate(file):
-            if i == 1: #This line contains the number of nodes in the layer.
-                numNodes = line
-                #numNodes = int(numNodes)
-                return numNodes
+# def getNumNodesFromNetFile(netFile):
+#     with open(netFile) as file:
+#         for i, line in enumerate(file):
+#             if i == 1: #This line contains the number of nodes in the layer.
+#                 numNodes = line
+#                 #numNodes = int(numNodes)
+#                 return numNodes
         

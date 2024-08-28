@@ -1,6 +1,7 @@
 from ana_Community_Detection_Algorithms import *
 from ana_FileProcessing import *
 from ana_algo_funcs import *
+from ana_eval_funcs import *
 import datetime
 from os import path
 import time
@@ -108,6 +109,7 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
     evalStack = []
     tmp_directory = OUTPUT_DIRECTORY.rsplit('/', 2)[0] + "/tmp"
     relative_output_directory =  "../" +OUTPUT_DIRECTORY.rsplit('/', 3)[1] + "/" + OUTPUT_DIRECTORY.rsplit('/', 3)[2] + "/" + OUTPUT_DIRECTORY.rsplit('/', 3)[3]
+    layers_generated_folder = OUTPUT_DIRECTORY.rsplit('/', 1)[0] + "/layers_generated"
     applicationName = OUTPUT_DIRECTORY.rsplit('/', 3)[2]
     relative_tmp_directory = "../"  + tmp_directory.rsplit('/', 3)[2] + "/" + tmp_directory.rsplit('/', 3)[3]
     #Evaluates postfix stack
@@ -117,110 +119,58 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
 
         #Performs unary operation and stores results accordingly
         elif token in operators['unary']:
+            #if this is the last operator in the stack- used for determining how results should be saved.
+            is_last_index = index == len(stack) - 1
             layername = evalStack.pop()
+            print(f"layername: {layername}")
             algo = token 
             analysisname = layername + "_" + algo.lower()
+            
+            
             if analysisname == analysis_name_from_config:
                 print(f"An error occurred during {original_expression} analysis: Invalid ANALYSIS_NAME in analysis config file, can not be the same as expression")
                 ana_log_file_object.ana_msg_log_file(ana_log_file, f"An error occurred during {original_expression} analysis: Invalid ANALYSIS_NAME in analysis config file, can not be the same as expression")
-                #delete_files(ana_hash_table)
+                delete_files(ana_hash_table)
                 return 5
+            
             subexpression = algo + "(" + layername + ")" 
             try:
                 
-                
+                #Retrieves path to input layer if needed.
                 if pathhh:
                     from ana_MainDriver import ana_get_INPUT_layer_path
                     INPUT_LAYER_PATH_FROM_DICT = ana_get_INPUT_layer_path(pathhh[gen_file_name_from_config], layername)
-                    
-                #This is used for config files where layers are used from multiple .net files. The input layers in this case are determined during each algo evaluation. currently only used in All-Airlines.ana 
-                if retrieveLayers:
-                    INPUT_LAYER_PATH_FROM_DICT = OUTPUT_DIRECTORY.rsplit('/', 1)[0] + "/layers_generated"
-                    INPUT_LAYER_PATH_FROM_DICT = os.path.join(INPUT_LAYER_PATH_FROM_DICT, layername + ".net")
+                
+                
+                #If the retrieveLayers flag is on, or if the layer is the result of a NOT operation, then the inputfile is in the layers_generated folder as {layername}.net
+                if layername.startswith("NOT") or retrieveLayers:
+                    INPUT_LAYER_PATH_FROM_DICT = os.path.join(layers_generated_folder, f"{layername}.net")
+
                         
                 print('Performing', algo, "on layer", layername)
                 
-                #If algorithm is one of the 6 algos i.e. louvain, infomap etc. then output should be stored in the OUTPUT_DIRECTORY, else (i.e. if algo is NOT) they should be stored in tmp
-                if algo in operators['unary'][:6]:
-                    current_output_directory = OUTPUT_DIRECTORY
-                    should_output_file = True
-                else:
-                    current_output_directory = tmp_directory
-                    should_output_file = False
                 
-
-                #Calls algo and records time elapsed
-                if algo in operators['unary'][:6]:
-                    start_time = time.time()
-                    comm_error = community_detection(algo , INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name)
-                    end_time = time.time()
-                    if comm_error == -1:
-                        return 6
-                    time_elapsed = str(round(end_time - start_time, 4))
-                else:
-                    pass
-                    #TODO: Implement NOT code
-                output_path = tmp_directory + "/" + USERNAME + "_" + ana_config_file_name + "_" + analysisname
-                print("analysisname:",analysisname)
-                # Retrieves results from ecom file.
-                file_to_open = output_path + ".ecom"
-                numNodes, numEdges, numCommunities = readResultsFromFile(file_to_open)
-                
-                ana_log_file_object.ana_msg_log_file(ana_log_file, "Information regarding the analyzed layer:\n\tDestination Folder: " + relative_output_directory + "\n\tGeneration time (in seconds): " + time_elapsed + "\n\tNumber of Nodes: " + str(numNodes) + "\tNumber of Edges: " + str(numEdges) + "\tNumber of Communities: " + str(numCommunities))
-
-                #Adds results to dictionary if the result should be moved to the analysis results output directory and not kept in temp directory
-                ecom_output = output_path  + ".ecom"
-                vcom_output = output_path + ".vcom"
-                
-                #Kevin 7/6/24: If retrieveLayers is true, then the map file will not be named according to ana_config_file_name, rather it will be named under the application name.
-                mapNameToCheck = applicationName if retrieveLayers else ana_config_file_name
-                if os.path.isfile(os.path.join(map_file_path, USERNAME + "_" + mapNameToCheck + "_" + layername + ".map")):
-                    path_to_map_file = shutil.copyfile(os.path.join(map_file_path, USERNAME + "_" + mapNameToCheck + "_" + layername + ".map") , os.path.join(map_file_path, USERNAME + "_" + ana_config_file_name + "_" + analysisname + ".map"))
-                else:
-                    path_to_map_file = None
-                
-                #If this is the last operator in the stack, this should be stored as the analysis_name_from_config
-                if(index == len(stack) - 1):
-                    ecom_output = shutil.copyfile(ecom_output, os.path.join(tmp_directory, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".ecom") )
-                    vcom_output = shutil.copyfile(vcom_output, os.path.join(tmp_directory, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".vcom") )
+                #Maps operators to their function calls. Returns the name of the file that was output by the evaluation.
+                function_mapping = {
+                    'Louvain' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'Infomap' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'Fastgreedy' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'Walktrap' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'Multilevel' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'LeadingeiGenvector' : lambda: evaluateCommDetectionAlgos(algo, INPUT_LAYER_PATH_FROM_DICT, tmp_directory, analysisname, ana_log_file_object, ana_log_file, USERNAME, layername, ana_config_file_name, applicationName, retrieveLayers, relative_output_directory, map_file_path, analysis_name_from_config, is_last_index, ana_hash_table, filesToOutput, OUTPUT_DIRECTORY, original_expression, subexpression),
+                    'NOT' : lambda: notAlgo(INPUT_LAYER_PATH_FROM_DICT, layername, ana_log_file_object, ana_log_file, tmp_directory, layers_generated_folder, ana_hash_table)
+                }
+                try:
+                    output_file = function_mapping[algo]()
+                except ValueError as e:
+                    return e.args[0]
                     
-                    if os.path.isfile(os.path.join(map_file_path, USERNAME + "_" + mapNameToCheck + "_" + layername + ".map")):
-                        path_to_map_file = shutil.copyfile(os.path.join(map_file_path, USERNAME + "_" + mapNameToCheck + "_" + layername + ".map") , os.path.join(map_file_path, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".map"))
-                    else:
-                        path_to_map_file = None
-                    
-                    time_analyzed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    ana_hash_table[analysis_name_from_config] = {
-                        "analysis_expression" : original_expression,
-                        "path_to_ecom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".ecom"),
-                        "path_to_vcom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".vcom"),
-                        "path_to_map_file" : path_to_map_file,
-                        "time_analyzed" : time_analyzed
-                    }
-                    print(f"{analysisname} time: {time_analyzed}")
-                    filesToOutput.append(ecom_output)
-                    filesToOutput.append(vcom_output)
-                #If not the last operator in the stack, this should be stored using the convention. (Username_anaconfigfilename_analysisname.com)    
-                elif should_output_file == True:
-                    time_analyzed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    ana_hash_table[analysisname] = {
-                                "analysis_expression" : subexpression,
-                                "path_to_ecom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysisname + ".ecom"),
-                                "path_to_vcom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysisname + ".vcom"),
-                                "path_to_map_file" : path_to_map_file,
-                                "time_analyzed" : time_analyzed
-                            }
-                    print(f"{analysisname} time: {time_analyzed}")
-                    filesToOutput.append(ecom_output)
-                    filesToOutput.append(vcom_output)
                 
-                
-                
-                evalStack.append(output_path)
+                evalStack.append(output_file)
             except Exception as ex:
                 print(ex)
                 ana_log_file_object.ana_msg_log_file(ana_log_file, f"An error occurred during analysis: {analysisname}. More info: {ex}")
-                #delete_files(ana_hash_table)
+                delete_files(ana_hash_table)
                 return 2
 
         
@@ -236,7 +186,7 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
                 #Creates the config file for the operator. Returns false if failed. Sets the path to both input files.
                 success, path_to_1, path_to_2 = createConfigFile(operator, operand1, operand2, ana_log_file_object, ana_log_file, file, getNumNodesFromNetFile(INPUT_LAYER_PATH_FROM_DICT))
                 if success == False:
-                    #delete_files(ana_hash_table)
+                    delete_files(ana_hash_table)
                     return 3
 
                 #Retrieves analysisname from ecom/vcom file
@@ -257,7 +207,7 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
                 if returncode != 0: #Catch c++ code error
                     print(f"Error: {operator} failed. Error code: {returncode}")
                     ana_log_file_object.ana_msg_log_file(ana_log_file, f"Error: {operator} failed. Error code: {returncode}. Analysis is unsuccessful.")
-                    #delete_files(ana_hash_table)
+                    delete_files(ana_hash_table)
                     return 4
                 print(f"--- {operator} COMPLETED ---\n\n")
 
@@ -309,17 +259,10 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
                         path_to_map_file = None
 
                     time_analyzed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    ana_hash_table[analysis_name_from_config] = {
-                        "analysis_expression" : original_expression,
-                        "path_to_ecom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".ecom"),
-                        "path_to_vcom_file" : os.path.join(OUTPUT_DIRECTORY, USERNAME + "_" + ana_config_file_name + "_" + analysis_name_from_config + ".vcom"),
-                        "path_to_map_file" : path_to_map_file,
-                        "time_analyzed" : time_analyzed
-                    }
+                    ana_hash_table[analysis_name_from_config] = ana_hash_table_entry(original_expression, OUTPUT_DIRECTORY, USERNAME, ana_config_file_name, analysis_name_from_config, path_to_map_file, time_analyzed)
+
                     print(f"{analysisname} time: {time_analyzed}")
                     ana_log_file_object.ana_msg_log_file(ana_log_file, "Done.\nInformation regarding the analyzed layer:\n\tDestination Folder: " + relative_output_directory + "\n\tGeneration time (in seconds): " + time_elapsed + "\n\tNumber of Nodes: " + str(numNodes) + "\tNumber of Edges: " + str(numEdges) + "\tNumber of Communities: " + str(numCommunities))
-
-                    
 
 
                 output_path = tmp_directory + "/" + USERNAME + "_" + analysisname
@@ -328,7 +271,7 @@ def postfix_evaluator(analysis_expression, gen_file_name_from_config, pathhh, IN
             except Exception as ex:
                 print(f"An error occurred during {token} analysis: {ex}")
                 ana_log_file_object.ana_msg_log_file(ana_log_file, f"An error occurred during {token} analysis.")
-                #delete_files(ana_hash_table)
+                delete_files(ana_hash_table)
                 return 2
     print(f"Analysis on layer {analysisname} Successful.\n\n")
     
