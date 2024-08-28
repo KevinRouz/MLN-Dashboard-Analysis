@@ -295,10 +295,6 @@ def main(MLN_USR, ana_configfilename):
                         retrieveLayers = False
                         
                     if line.startswith("INPUT_DIRECTORY"):
-                        # INPUT_LAYER_PATH_FROM_DICT = line.split('=')[1].strip()
-                        # if INPUT_LAYER_PATH_FROM_DICT is not None:
-                        #     INPUT_LAYER_PATH_FROM_DICT = INPUT_LAYER_PATH_FROM_DICT.replace("$MLN_USR", MLN_USR)
-                        #     INPUT_LAYER_PATH_FROM_DICT = os.path.join(INPUT_LAYER_PATH_FROM_DICT, f"{config_file_first_portion[0]}.net")
                         INPUT_LAYER_PATH_FROM_DICT = None
                         retrieveLayers = True
                     
@@ -362,7 +358,7 @@ def main(MLN_USR, ana_configfilename):
                 ana_log_file_object.ana_msg_log_file(ana_log_file, f"Attempting to move files to analysis_results directory...")
                 moveFilesToOutputDirectory(filesToOutput, OUTPUT_DIRECTORY)
                 ana_log_file_object.ana_msg_log_file(ana_log_file, f"Successfully moved files...")
-        ana_del_file_tmp_dir(tmp_folder)
+        #ana_del_file_tmp_dir(tmp_folder)
         return return_code
         #print(filesToOutput)
         #print(OUTPUT_DIRECTORY)
